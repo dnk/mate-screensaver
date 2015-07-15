@@ -39,14 +39,10 @@
 #include <gio/gio.h>
 
 #if GTK_CHECK_VERSION (3, 0, 0)
-#include <gdk/gdkkeysyms-compat.h>
 #include <gtk/gtkx.h>
 #define MATE_DESKTOP_USE_UNSTABLE_API
 #include <libmate-desktop/mate-desktop-utils.h>
 #define gdk_spawn_command_line_on_screen mate_gdk_spawn_command_line_on_screen
-#define GTK_WIDGET_VISIBLE gtk_widget_get_visible
-#define GTK_WIDGET_IS_SENSITIVE gtk_widget_is_sensitive
-#define GTK_WIDGET_HAS_FOCUS gtk_widget_has_focus
 #endif
 
 #ifdef WITH_KBD_LAYOUT_INDICATOR
@@ -188,18 +184,20 @@ gs_lock_plug_style_set (GtkWidget *widget,
 }
 
 static gboolean
-is_program_in_path (const char *program)
+process_is_running (const char * name)
 {
-	char *tmp = g_find_program_in_path (program);
-	if (tmp != NULL)
-	{
-		g_free (tmp);
-		return TRUE;
-	}
-	else
-	{
-		return FALSE;
-	}
+        int num_processes;
+        gchar *command = g_strdup_printf ("pidof %s | wc -l", name);
+        FILE *fp = popen(command, "r");
+        fscanf(fp, "%d", &num_processes);
+        pclose(fp);
+        g_free (command);
+
+        if (num_processes > 0) {
+                return TRUE;
+        } else {
+                return FALSE;
+        }
 }
 
 static void
@@ -209,7 +207,7 @@ do_user_switch (GSLockPlug *plug)
 	gboolean res;
 	char    *command;
 
-	if (is_program_in_path (MDM_FLEXISERVER_COMMAND))
+	if (process_is_running ("mdm"))
 	{
 		/* MDM */
 		command = g_strdup_printf ("%s %s",
@@ -229,7 +227,7 @@ do_user_switch (GSLockPlug *plug)
 			g_error_free (error);
 		}
 	}
-	else if (is_program_in_path (GDM_FLEXISERVER_COMMAND))
+	else if (process_is_running ("gdm") || process_is_running("gdm3"))
 	{
 		/* GDM */
 		command = g_strdup_printf ("%s %s",
@@ -580,17 +578,13 @@ gs_lock_plug_run (GSLockPlug *plug)
 
 	g_object_ref (plug);
 
-#if GTK_CHECK_VERSION (3, 0, 0)
 	was_modal = gtk_window_get_modal (GTK_WINDOW (plug));
-#else
-	was_modal = GTK_WINDOW (plug)->modal;
-#endif
 	if (!was_modal)
 	{
 		gtk_window_set_modal (GTK_WINDOW (plug), TRUE);
 	}
 
-	if (!GTK_WIDGET_VISIBLE (plug))
+	if (!gtk_widget_get_visible (GTK_WIDGET (plug)))
 	{
 		gtk_widget_show (GTK_WIDGET (plug));
 	}
@@ -648,7 +642,7 @@ gs_lock_plug_run (GSLockPlug *plug)
 		g_signal_handler_disconnect (plug, unmap_handler);
 		g_signal_handler_disconnect (plug, delete_handler);
 		g_signal_handler_disconnect (plug, destroy_handler);
-		g_signal_handler_disconnect (plug, keymap_handler);
+		g_signal_handler_disconnect (keymap, keymap_handler);
 	}
 
 	g_object_unref (plug);
@@ -919,8 +913,8 @@ image_set_from_pixbuf (GtkImage  *image,
 
 	radius = w / 10;
 
-	pixmap = gdk_pixmap_new (GTK_WIDGET (image)->window, w, h, -1);
-	bitmask = gdk_pixmap_new (GTK_WIDGET (image)->window, w, h, 1);
+	pixmap = gdk_pixmap_new (gtk_widget_get_window (GTK_WIDGET (image)), w, h, -1);
+	bitmask = gdk_pixmap_new (gtk_widget_get_window (GTK_WIDGET (image)), w, h, 1);
 
 	cr = gdk_cairo_create (pixmap);
 	cr_mask = gdk_cairo_create (bitmask);
@@ -935,7 +929,7 @@ image_set_from_pixbuf (GtkImage  *image,
 	cairo_set_source_rgb (cr_mask, 1, 1, 1);
 	cairo_fill (cr_mask);
 
-	color = GTK_WIDGET (image)->style->bg [GTK_STATE_NORMAL];
+	color = gtk_widget_get_style (GTK_WIDGET (image))->bg [GTK_STATE_NORMAL];
 	r = (float)color.red / 65535.0;
 	g = (float)color.green / 65535.0;
 	b = (float)color.blue / 65535.0;
@@ -1284,12 +1278,12 @@ gs_lock_plug_set_switch_enabled (GSLockPlug *plug,
 
 	if (switch_enabled)
 	{
-		if (is_program_in_path (MDM_FLEXISERVER_COMMAND))
+		if (process_is_running ("mdm"))
 		{
 			/* MDM  */
 			gtk_widget_show (plug->priv->auth_switch_button);
 		}
-		else if (is_program_in_path (GDM_FLEXISERVER_COMMAND))
+		else if (process_is_running ("gdm") || process_is_running("gdm3"))
 		{
 			/* GDM */
 			gtk_widget_show (plug->priv->auth_switch_button);
@@ -1350,11 +1344,7 @@ gs_lock_plug_close (GSLockPlug *plug)
 	GdkEvent  *event;
 
 	event = gdk_event_new (GDK_DELETE);
-#if GTK_CHECK_VERSION (3, 0, 0)
 	event->any.window = g_object_ref (gtk_widget_get_window(widget));
-#else
-	event->any.window = g_object_ref (widget->window);
-#endif
 	event->any.send_event = TRUE;
 
 	gtk_main_do_event (event);
@@ -1430,7 +1420,7 @@ gs_lock_plug_class_init (GSLockPlugClass *klass)
 
 	binding_set = gtk_binding_set_by_class (klass);
 
-	gtk_binding_entry_add_signal (binding_set, GDK_Escape, 0,
+	gtk_binding_entry_add_signal (binding_set, GDK_KEY_Escape, 0,
 	                              "close", 0);
 }
 
@@ -1564,11 +1554,7 @@ gs_lock_plug_set_busy (GSLockPlug *plug)
 
 	cursor = gdk_cursor_new (GDK_WATCH);
 
-#if GTK_CHECK_VERSION (3, 0, 0)
 	gdk_window_set_cursor (gtk_widget_get_window (top_level), cursor);
-#else
-	gdk_window_set_cursor (top_level->window, cursor);
-#endif
 	gdk_cursor_unref (cursor);
 }
 
@@ -1581,11 +1567,7 @@ gs_lock_plug_set_ready (GSLockPlug *plug)
 	top_level = gtk_widget_get_toplevel (GTK_WIDGET (plug));
 
 	cursor = gdk_cursor_new (GDK_LEFT_PTR);
-#if GTK_CHECK_VERSION (3, 0, 0)
 	gdk_window_set_cursor (gtk_widget_get_window (top_level), cursor);
-#else
-	gdk_window_set_cursor (top_level->window, cursor);
-#endif
 	gdk_cursor_unref (cursor);
 }
 
@@ -1607,7 +1589,7 @@ gs_lock_plug_enable_prompt (GSLockPlug *plug,
 	gtk_widget_set_sensitive (plug->priv->auth_prompt_entry, TRUE);
 	gtk_widget_show (plug->priv->auth_prompt_entry);
 
-	if (! GTK_WIDGET_HAS_FOCUS (plug->priv->auth_prompt_entry))
+	if (! gtk_widget_has_focus (plug->priv->auth_prompt_entry))
 	{
 		gtk_widget_grab_focus (plug->priv->auth_prompt_entry);
 	}
@@ -1666,8 +1648,8 @@ entry_key_press (GtkWidget   *widget,
 	/* if the input widget is visible and ready for input
 	 * then just carry on as usual
 	 */
-	if (GTK_WIDGET_VISIBLE (plug->priv->auth_prompt_entry) &&
-	        GTK_WIDGET_IS_SENSITIVE (plug->priv->auth_prompt_entry))
+	if (gtk_widget_get_visible (plug->priv->auth_prompt_entry) &&
+	        gtk_widget_is_sensitive (plug->priv->auth_prompt_entry))
 	{
 		return FALSE;
 	}
@@ -1695,11 +1677,7 @@ gs_lock_plug_add_button (GSLockPlug  *plug,
 
 	button = gtk_button_new_from_stock (button_text);
 
-#if GTK_CHECK_VERSION (3, 0, 0)
 	gtk_widget_set_can_default (button, TRUE);
-#else
-	GTK_WIDGET_SET_FLAGS (button, GTK_CAN_DEFAULT);
-#endif
 
 	gtk_widget_show (button);
 
@@ -2241,11 +2219,7 @@ gs_lock_plug_init (GSLockPlug *plug)
 	{
 		XklEngine *engine;
 
-#if GTK_CHECK_VERSION (3, 0, 0)
 		engine = xkl_engine_get_instance (GDK_DISPLAY_XDISPLAY (gdk_display_get_default ()));
-#else
-		engine = xkl_engine_get_instance (GDK_DISPLAY ());
-#endif
 		if (xkl_engine_get_num_groups (engine) > 1)
 		{
 			GtkWidget *layout_indicator;

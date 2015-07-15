@@ -307,7 +307,7 @@ preview_clear (GtkWidget *widget)
 #if GTK_CHECK_VERSION (3, 0, 0)
 	gtk_widget_queue_draw (widget);
 #else
-	gdk_window_clear (widget->window);
+	gdk_window_clear (gtk_widget_get_window (widget));
 #endif
 }
 
@@ -918,11 +918,7 @@ drag_data_received_cb (GtkWidget        *widget,
 	if (!(info == TARGET_URI_LIST || info == TARGET_NS_URL))
 		return;
 
-#if GTK_CHECK_VERSION (3, 0, 0)
 	files = uri_list_parse ((char *) gtk_selection_data_get_data (selection_data));
-#else
-	files = uri_list_parse ((char *) selection_data->data);
-#endif
 	if (files != NULL)
 	{
 		GtkWidget *prefs_dialog;
@@ -1308,11 +1304,7 @@ get_best_visual (void)
 			VisualID      visual_id;
 
 			visual_id = (VisualID) v;
-#if GTK_CHECK_VERSION (3, 0, 0)
 			visual = gdk_x11_screen_lookup_visual (gdk_screen_get_default (), visual_id);
-#else
-			visual = gdkx_visual_get (visual_id);
-#endif
 
 			g_debug ("Found best visual for GL: 0x%x",
 			         (unsigned int) visual_id);
@@ -1443,11 +1435,7 @@ get_best_visual_for_screen (GdkScreen *screen)
 			VisualID      visual_id;
 
 			visual_id = (VisualID) v;
-#if GTK_CHECK_VERSION (3, 0, 0)
 			visual = gdk_x11_screen_lookup_visual (screen, visual_id);
-#else
-			visual = gdkx_visual_get (visual_id);
-#endif
 
 			gs_debug ("Found best GL visual for screen %d: 0x%x",
 			          gdk_screen_get_number (screen),

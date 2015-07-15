@@ -174,9 +174,6 @@ start_fade (GSTESlideshow *show,
 	{
 		GdkPixbuf *colored;
 		guint32    color;
-#if !GTK_CHECK_VERSION (3, 0, 0)
-		GdkPixmap *pixmap;
-#endif
 
 		color = (show->priv->background_color->red << 16)
 		        + (show->priv->background_color->green / 256 << 8)
@@ -188,19 +185,11 @@ start_fade (GSTESlideshow *show,
 		          256,
 		          color,
 		          color);
-#if GTK_CHECK_VERSION (3, 0, 0)
+
 		gdk_pixbuf_copy_area (colored, 0, 0,
 		                      gdk_pixbuf_get_width (colored),
 		                      gdk_pixbuf_get_height (colored),
 		                      pixbuf, 0, 0);
-#else
-		pixmap = gdk_pixmap_new (NULL, ph, pw,  gdk_visual_get_system ()->depth);
-
-		gdk_draw_pixbuf (pixmap, NULL, colored, 0, 0, 0, 0, -1, -1, GDK_RGB_DITHER_MAX, 0, 0);
-		gdk_pixbuf_get_from_drawable (pixbuf, pixmap, NULL, 0, 0, 0, 0, -1, -1);
-
-		g_object_unref (pixmap);
-#endif
 
 		g_object_unref(colored);
 	}
@@ -335,22 +324,7 @@ update_display (GSTESlideshow *show)
 
 	cairo_destroy (cr);
 
-#if GTK_CHECK_VERSION (3, 0, 0)
 	gtk_widget_queue_draw (GTK_WIDGET (show));
-#else
-	/* paint the image buffer into the window */
-	cr = gdk_cairo_create (GTK_WIDGET (show)->window);
-
-	cairo_set_source_surface (cr, show->priv->surf, 0, 0);
-
-	gs_theme_engine_profile_start ("paint surface to window");
-	cairo_paint (cr);
-	gs_theme_engine_profile_end ("paint surface to window");
-
-	cairo_destroy (cr);
-
-	gs_theme_engine_profile_end ("end");
-#endif
 }
 
 static gboolean
@@ -901,32 +875,29 @@ gste_slideshow_real_expose (GtkWidget      *widget,
 #endif
 {
 	GSTESlideshow *show = GSTE_SLIDESHOW (widget);
-#if !GTK_CHECK_VERSION (3, 0, 0)
-	gboolean       handled = FALSE;
-
-	update_display (show);
-#endif
 
 #if GTK_CHECK_VERSION (3, 0, 0)
-	if (GTK_WIDGET_CLASS (parent_class)->draw)
-	{
+	if (GTK_WIDGET_CLASS (parent_class)->draw) {
 		GTK_WIDGET_CLASS (parent_class)->draw (widget, cr);
 	}
+#else
+	if (GTK_WIDGET_CLASS (parent_class)->expose_event) {
+		GTK_WIDGET_CLASS (parent_class)->expose_event (widget, event);
+	}
+
+	cairo_t *cr = gdk_cairo_create (event->window);
+#endif
 	cairo_set_source_surface (cr, show->priv->surf, 0, 0);
 
 	gs_theme_engine_profile_start ("paint surface to window");
 	cairo_paint (cr);
 	gs_theme_engine_profile_end ("paint surface to window");
 
-	return TRUE;
-#else
-	if (GTK_WIDGET_CLASS (parent_class)->expose_event)
-	{
-		handled = GTK_WIDGET_CLASS (parent_class)->expose_event (widget, event);
-	}
-
-	return handled;
+#if !GTK_CHECK_VERSION (3, 0, 0)
+	cairo_destroy (cr);
 #endif
+
+	return TRUE;
 }
 
 static gboolean
@@ -951,11 +922,7 @@ gste_slideshow_real_configure (GtkWidget         *widget,
 		cairo_surface_destroy (show->priv->surf);
 	}
 
-#if GTK_CHECK_VERSION (3, 0, 0)
 	cr = gdk_cairo_create (gtk_widget_get_window (widget));
-#else
-	cr = gdk_cairo_create (widget->window);
-#endif
 	show->priv->surf = cairo_surface_create_similar (cairo_get_target (cr),
 	                   CAIRO_CONTENT_COLOR,
 	                   show->priv->window_width,

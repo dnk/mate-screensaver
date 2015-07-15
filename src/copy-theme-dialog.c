@@ -201,11 +201,7 @@ copy_theme_dialog_init (CopyThemeDialog *dlg)
 	dlg->priv->cancellable = g_cancellable_new ();
 
 	/* GUI settings */
-#if GTK_CHECK_VERSION (3, 0, 0)
 	dialog_vbox = gtk_dialog_get_content_area (GTK_DIALOG (dlg));
-#else
-	dialog_vbox = GTK_DIALOG (dlg)->vbox;
-#endif
 
 	gtk_container_set_border_width (GTK_CONTAINER (dialog_vbox),
 	                                4);
@@ -259,9 +255,6 @@ copy_theme_dialog_init (CopyThemeDialog *dlg)
 
 	gtk_window_set_title (GTK_WINDOW (dlg),
 	                      _("Copying themes"));
-#if !GTK_CHECK_VERSION (3, 0, 0)
-	gtk_dialog_set_has_separator (GTK_DIALOG (dlg), FALSE);
-#endif
 	gtk_container_set_border_width (GTK_CONTAINER (dlg), 6);
 
 	gtk_widget_show_all (dialog_vbox);
