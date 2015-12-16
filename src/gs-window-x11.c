@@ -62,6 +62,11 @@ enum
 
 #define GS_WINDOW_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), GS_TYPE_WINDOW, GSWindowPrivate))
 
+#if GTK_CHECK_VERSION (3, 0, 0)
+#define gtk_hbox_new(X,Y) gtk_box_new(GTK_ORIENTATION_HORIZONTAL,Y)
+#define gtk_vbox_new(X,Y) gtk_box_new(GTK_ORIENTATION_VERTICAL,Y)
+#endif
+
 struct GSWindowPrivate
 {
 	int        monitor;
@@ -154,11 +159,20 @@ static void
 set_invisible_cursor (GdkWindow *window,
                       gboolean   invisible)
 {
+#if GTK_CHECK_VERSION (3, 16, 0)
+	GdkDisplay *display;
+#endif
 	GdkCursor *cursor = NULL;
 
 	if (invisible)
 	{
+
+#if GTK_CHECK_VERSION (3, 16, 0)
+		display = gtk_widget_get_display (GTK_WIDGET (window));
+		cursor = gdk_cursor_new_for_display (display, GDK_BLANK_CURSOR);
+#else
 		cursor = gdk_cursor_new (GDK_BLANK_CURSOR);
+#endif
 	}
 
 	gdk_window_set_cursor (window, cursor);
@@ -198,6 +212,7 @@ gs_window_override_user_time (GSWindow *window)
 	gdk_x11_window_set_user_time (gtk_widget_get_window (GTK_WIDGET (window)), ev_time);
 }
 
+#if !GTK_CHECK_VERSION (3, 0, 0)
 static void
 force_no_pixmap_background (GtkWidget *widget)
 {
@@ -225,7 +240,6 @@ force_no_pixmap_background (GtkWidget *widget)
 	gtk_widget_set_name (widget, "gs-window-drawing-area");
 }
 
-#if !GTK_CHECK_VERSION (3, 0, 0)
 static void
 clear_children (Window window)
 {
@@ -277,8 +291,12 @@ widget_clear_all_children (GtkWidget *widget)
 
 	clear_children (GDK_WINDOW_XID (w));
 
+#if GTK_CHECK_VERSION (3, 0, 0)
+	gdk_error_trap_pop_ignored ();
+#else
 	gdk_display_sync (gtk_widget_get_display (widget));
 	gdk_error_trap_pop ();
+#endif
 }
 #endif
 
@@ -1026,8 +1044,12 @@ select_popup_events (void)
 	events = SubstructureNotifyMask | attr.your_event_mask;
 	XSelectInput (GDK_DISPLAY_XDISPLAY (gdk_display_get_default ()), GDK_ROOT_WINDOW (), events);
 
+#if GTK_CHECK_VERSION (3, 0, 0)
+	gdk_error_trap_pop_ignored ();
+#else
 	gdk_display_sync (gdk_display_get_default ());
 	gdk_error_trap_pop ();
+#endif
 }
 
 static void
@@ -1044,8 +1066,12 @@ window_select_shape_events (GSWindow *window)
 		XShapeSelectInput (GDK_DISPLAY_XDISPLAY (gdk_display_get_default ()), GDK_WINDOW_XID (gtk_widget_get_window (GTK_WIDGET (window))), events);
 	}
 
+#if GTK_CHECK_VERSION (3, 0, 0)
+	gdk_error_trap_pop_ignored ();
+#else
 	gdk_display_sync (gdk_display_get_default ());
 	gdk_error_trap_pop ();
+#endif
 #endif
 }
 
@@ -1099,7 +1125,11 @@ set_info_text_and_icon (GSWindow   *window,
 	image = gtk_image_new_from_stock (icon_stock_id, GTK_ICON_SIZE_DIALOG);
 	gtk_widget_show (image);
 	gtk_box_pack_start (GTK_BOX (hbox_content), image, FALSE, FALSE, 0);
+#if GTK_CHECK_VERSION (3, 14, 0)
+	gtk_widget_set_valign (image, GTK_ALIGN_START);
+#else
 	gtk_misc_set_alignment (GTK_MISC (image), 0.5, 0);
+#endif
 
 	vbox = gtk_vbox_new (FALSE, 6);
 	gtk_widget_show (vbox);
@@ -1112,7 +1142,11 @@ set_info_text_and_icon (GSWindow   *window,
 	gtk_box_pack_start (GTK_BOX (vbox), primary_label, TRUE, TRUE, 0);
 	gtk_label_set_use_markup (GTK_LABEL (primary_label), TRUE);
 	gtk_label_set_line_wrap (GTK_LABEL (primary_label), TRUE);
+#if GTK_CHECK_VERSION (3, 14, 0)
+	gtk_widget_set_halign (primary_label, GTK_ALIGN_START);
+#else
 	gtk_misc_set_alignment (GTK_MISC (primary_label), 0, 0.5);
+#endif
 
 	if (secondary_text != NULL)
 	{
@@ -1124,7 +1158,11 @@ set_info_text_and_icon (GSWindow   *window,
 		gtk_box_pack_start (GTK_BOX (vbox), secondary_label, TRUE, TRUE, 0);
 		gtk_label_set_use_markup (GTK_LABEL (secondary_label), TRUE);
 		gtk_label_set_line_wrap (GTK_LABEL (secondary_label), TRUE);
+#if GTK_CHECK_VERSION (3, 14, 0)
+		gtk_widget_set_halign (secondary_label, GTK_ALIGN_START);
+#else
 		gtk_misc_set_alignment (GTK_MISC (secondary_label), 0, 0.5);
+#endif
 	}
 
 	/* remove old content */
@@ -1561,9 +1599,7 @@ keyboard_command_finish (GSWindow *window)
 
 	if (window->priv->keyboard_pid > 0)
 	{
-		int exit_status;
-
-		exit_status = wait_on_child (window->priv->keyboard_pid);
+		wait_on_child (window->priv->keyboard_pid);
 
 		g_spawn_close_pid (window->priv->keyboard_pid);
 		window->priv->keyboard_pid = 0;
@@ -1701,9 +1737,7 @@ gs_window_dialog_finish (GSWindow *window)
 
 	if (window->priv->lock_pid > 0)
 	{
-		int exit_status;
-
-		exit_status = wait_on_child (window->priv->lock_pid);
+		wait_on_child (window->priv->lock_pid);
 
 		g_spawn_close_pid (window->priv->lock_pid);
 		window->priv->lock_pid = 0;
@@ -2443,7 +2477,11 @@ gs_window_real_size_request (GtkWidget      *widget,
 
 	if (child && gtk_widget_get_visible (child))
 	{
+#if GTK_CHECK_VERSION(3, 0, 0)
+		gtk_widget_get_preferred_size (child, requisition, NULL);
+#else
 		gtk_widget_size_request (child, requisition);
+#endif
 	}
 
 	old_geometry = window->priv->geometry;
@@ -2705,6 +2743,10 @@ create_info_bar (GSWindow *window)
 static void
 gs_window_init (GSWindow *window)
 {
+#if GTK_CHECK_VERSION (3, 0, 0)
+	GdkRGBA black = { 0.0, 0.0, 0.0, 1.0 };
+
+#endif
 	window->priv = GS_WINDOW_GET_PRIVATE (window);
 
 	window->priv->geometry.x      = -1;
@@ -2746,9 +2788,16 @@ gs_window_init (GSWindow *window)
 	gtk_widget_set_app_paintable (window->priv->drawing_area, TRUE);
 #endif
 	gtk_box_pack_start (GTK_BOX (window->priv->vbox), window->priv->drawing_area, TRUE, TRUE, 0);
+#if GTK_CHECK_VERSION (3, 0, 0)
+        gtk_widget_realize (window->priv->drawing_area);
+        gdk_window_set_background_rgba (gtk_widget_get_window (window->priv->drawing_area), &black);
+
+#endif
 	create_info_bar (window);
 
+#if !GTK_CHECK_VERSION (3, 0, 0)
 	force_no_pixmap_background (window->priv->drawing_area);
+#endif
 }
 
 static void
@@ -2784,6 +2833,7 @@ gs_window_finalize (GObject *object)
 	if (window->priv->info_bar_timer_id > 0)
 	{
 		g_source_remove (window->priv->info_bar_timer_id);
+		window->priv->info_bar_timer_id = 0;
 	}
 
 	remove_watchdog_timer (window);

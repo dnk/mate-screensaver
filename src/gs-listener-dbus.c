@@ -899,6 +899,7 @@ listener_dbus_get_ref_entries (GSListener     *listener,
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
+#ifdef WITH_CONSOLE_KIT
 static void
 listener_add_ck_ref_entry (GSListener     *listener,
                            int             entry_type,
@@ -932,6 +933,7 @@ listener_remove_ck_ref_entry (GSListener *listener,
 {
 	listener_remove_ref_entry (listener, entry_type, cookie);
 }
+#endif
 
 static DBusHandlerResult
 listener_dbus_add_ref_entry (GSListener     *listener,
@@ -1005,7 +1007,6 @@ listener_dbus_remove_ref_entry (GSListener     *listener,
 {
 	DBusMessage        *reply;
 	DBusError           error;
-	const char         *sender;
 	guint32             cookie;
 
 	dbus_error_init (&error);
@@ -1034,7 +1035,7 @@ listener_dbus_remove_ref_entry (GSListener     *listener,
 		g_error ("No memory");
 
 	/* FIXME: check sender is from same connection as entry */
-	sender = dbus_message_get_sender (message);
+	dbus_message_get_sender (message);
 
 	listener_remove_ref_entry (listener, entry_type, cookie);
 

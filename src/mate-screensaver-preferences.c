@@ -1212,7 +1212,11 @@ constrain_list_size (GtkWidget      *widget,
 	/* constrain height to be the tree height up to a max */
 	max_height = (gdk_screen_get_height (gtk_widget_get_screen (widget))) / 4;
 
+#if GTK_CHECK_VERSION(3, 0, 0)
+	gtk_widget_get_preferred_size (to_size, &req, NULL);
+#else
 	gtk_widget_size_request (to_size, &req);
+#endif
 
 	requisition->height = MIN (req.height, max_height);
 }
@@ -1548,7 +1552,6 @@ init_capplet (void)
 	GtkWidget *fullscreen_preview_window;
 	GtkWidget *fullscreen_preview_previous;
 	GtkWidget *fullscreen_preview_next;
-	GtkWidget *fullscreen_preview_area;
 	GtkWidget *fullscreen_preview_close;
 	char      *gtk_builder_file;
 	gdouble    activate_delay;
@@ -1595,7 +1598,7 @@ init_capplet (void)
 	preview_button     = GTK_WIDGET (gtk_builder_get_object (builder, "preview_button"));
 	gpm_button         = GTK_WIDGET (gtk_builder_get_object (builder, "gpm_button"));
 	fullscreen_preview_window = GTK_WIDGET (gtk_builder_get_object (builder, "fullscreen_preview_window"));
-	fullscreen_preview_area = GTK_WIDGET (gtk_builder_get_object (builder, "fullscreen_preview_area"));
+	GTK_WIDGET (gtk_builder_get_object (builder, "fullscreen_preview_area"));
 	fullscreen_preview_close = GTK_WIDGET (gtk_builder_get_object (builder, "fullscreen_preview_close"));
 	fullscreen_preview_previous = GTK_WIDGET (gtk_builder_get_object (builder, "fullscreen_preview_previous_button"));
 	fullscreen_preview_next = GTK_WIDGET (gtk_builder_get_object (builder, "fullscreen_preview_next_button"));
