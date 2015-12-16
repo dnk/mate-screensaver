@@ -31,11 +31,6 @@
 
 #include "copy-theme-dialog.h"
 
-#if GTK_CHECK_VERSION (3, 0, 0)
-#define gtk_hbox_new(X,Y) gtk_box_new(GTK_ORIENTATION_HORIZONTAL,Y)
-#define gtk_vbox_new(X,Y) gtk_box_new(GTK_ORIENTATION_VERTICAL,Y)
-#endif
-
 static void
 copy_theme_dialog_class_init (CopyThemeDialogClass *klass);
 static void
@@ -212,7 +207,11 @@ copy_theme_dialog_init (CopyThemeDialog *dlg)
 	                                4);
 	gtk_box_set_spacing (GTK_BOX (dialog_vbox), 4);
 
+#if GTK_CHECK_VERSION (3, 0, 0)
+	vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
+#else
 	vbox = gtk_vbox_new (FALSE, 6);
+#endif
 	gtk_container_set_border_width (GTK_CONTAINER (vbox), 6);
 	gtk_box_pack_start (GTK_BOX (dialog_vbox), vbox, TRUE, TRUE, 0);
 
@@ -230,7 +229,11 @@ copy_theme_dialog_init (CopyThemeDialog *dlg)
 
 	gtk_box_pack_start (GTK_BOX (vbox), dlg->priv->status, FALSE, FALSE, 0);
 
+#if GTK_CHECK_VERSION (3, 0, 0)
+	hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
+#else
 	hbox = gtk_hbox_new (FALSE, 0);
+#endif
 	gtk_box_pack_start (GTK_BOX (vbox), hbox, TRUE, TRUE, 0);
 
 	table = gtk_table_new (2, 2, FALSE);
@@ -248,7 +251,12 @@ copy_theme_dialog_init (CopyThemeDialog *dlg)
 
 	gtk_box_pack_start (GTK_BOX (vbox), GTK_WIDGET (table), FALSE, FALSE, 0);
 
+#if GTK_CHECK_VERSION (3, 0, 0)
+	progress_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
+	gtk_box_set_homogeneous (GTK_BOX(progress_vbox), TRUE);
+#else
 	progress_vbox = gtk_vbox_new (TRUE, 0);
+#endif
 	gtk_box_pack_start (GTK_BOX (vbox), progress_vbox, FALSE, FALSE, 0);
 
 	dlg->priv->progress = gtk_progress_bar_new ();

@@ -82,11 +82,6 @@ static void gs_lock_plug_finalize   (GObject         *object);
 
 #define GS_LOCK_PLUG_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), GS_TYPE_LOCK_PLUG, GSLockPlugPrivate))
 
-#if GTK_CHECK_VERSION (3, 0, 0)
-#define gtk_hbox_new(X,Y) gtk_box_new(GTK_ORIENTATION_HORIZONTAL,Y)
-#define gtk_vbox_new(X,Y) gtk_box_new(GTK_ORIENTATION_VERTICAL,Y)
-#endif
-
 struct GSLockPlugPrivate
 {
 	GtkWidget   *vbox;
@@ -1951,10 +1946,18 @@ create_page_one (GSLockPlug *plug)
 	align = gtk_alignment_new (0.5, 0.5, 1, 1);
 	gtk_notebook_append_page (GTK_NOTEBOOK (plug->priv->notebook), align, NULL);
 
+#if GTK_CHECK_VERSION (3, 0, 0)
+	vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
+#else
 	vbox = gtk_vbox_new (FALSE, 12);
+#endif
 	gtk_container_add (GTK_CONTAINER (align), vbox);
 
+#if GTK_CHECK_VERSION (3, 0, 0)
+	vbox2 = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
+#else
 	vbox2 = gtk_vbox_new (FALSE, 0);
+#endif
 	gtk_box_pack_start (GTK_BOX (vbox), vbox2, FALSE, FALSE, 0);
 
 	str = g_strdup ("<span size=\"xx-large\" weight=\"ultrabold\">%s</span>");
@@ -1990,7 +1993,11 @@ create_page_one (GSLockPlug *plug)
 	gtk_misc_set_alignment (GTK_MISC (plug->priv->auth_face_image), 0.5, 1.0);
 #endif
 
+#if GTK_CHECK_VERSION (3, 0, 0)
+	vbox2 = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
+#else
 	vbox2 = gtk_vbox_new (FALSE, 0);
+#endif
 	gtk_box_pack_start (GTK_BOX (vbox), vbox2, FALSE, FALSE, 0);
 
 	str = g_strdup ("<span size=\"x-large\">%R</span>");
@@ -2020,10 +2027,18 @@ create_page_one (GSLockPlug *plug)
 	gtk_label_set_use_markup (GTK_LABEL (plug->priv->auth_username_label), TRUE);
 	gtk_box_pack_start (GTK_BOX (vbox2), plug->priv->auth_username_label, FALSE, FALSE, 0);
 
+#if GTK_CHECK_VERSION (3, 0, 0)
+	vbox2 = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
+#else
 	vbox2 = gtk_vbox_new (FALSE, 0);
+#endif
 	gtk_box_pack_start (GTK_BOX (vbox), vbox2, TRUE, TRUE, 0);
 
+#if GTK_CHECK_VERSION (3, 0, 0)
+	hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
+#else
 	hbox = gtk_hbox_new (FALSE, 6);
+#endif
 	gtk_box_pack_start (GTK_BOX (vbox2), hbox, FALSE, FALSE, 0);
 
 	plug->priv->auth_prompt_label = gtk_label_new_with_mnemonic (_("_Password:"));
@@ -2257,7 +2272,11 @@ gs_lock_plug_init (GSLockPlug *plug)
 	{
 		gs_debug ("Unable to load theme!");
 
+#if GTK_CHECK_VERSION (3, 0, 0)
+		plug->priv->vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
+#else
 		plug->priv->vbox = gtk_vbox_new (FALSE, 0);
+#endif
 
 		gtk_container_add (GTK_CONTAINER (plug), plug->priv->vbox);
 
