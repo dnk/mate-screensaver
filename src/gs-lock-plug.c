@@ -38,11 +38,11 @@
 #include <gtk/gtk.h>
 #include <gio/gio.h>
 
-#if GTK_CHECK_VERSION (3, 0, 0)
-#include <gtk/gtkx.h>
 #define MATE_DESKTOP_USE_UNSTABLE_API
 #include <libmate-desktop/mate-desktop-utils.h>
-#define gdk_spawn_command_line_on_screen mate_gdk_spawn_command_line_on_screen
+
+#if GTK_CHECK_VERSION (3, 0, 0)
+#include <gtk/gtkx.h>
 #endif
 
 #ifdef WITH_KBD_LAYOUT_INDICATOR
@@ -215,7 +215,7 @@ do_user_switch (GSLockPlug *plug)
 								   MDM_FLEXISERVER_ARGS);
 
 		error = NULL;
-		res = gdk_spawn_command_line_on_screen (gdk_screen_get_default (),
+		res = mate_gdk_spawn_command_line_on_screen (gdk_screen_get_default (),
 												command,
 												&error);
 
@@ -235,7 +235,7 @@ do_user_switch (GSLockPlug *plug)
 								   GDM_FLEXISERVER_ARGS);
 
 		error = NULL;
-		res = gdk_spawn_command_line_on_screen (gdk_screen_get_default (),
+		res = mate_gdk_spawn_command_line_on_screen (gdk_screen_get_default (),
 												command,
 												&error);
 
@@ -1963,9 +1963,9 @@ create_page_one (GSLockPlug *plug)
 	str = g_strdup ("<span size=\"xx-large\" weight=\"ultrabold\">%s</span>");
 	plug->priv->auth_time_label = gtk_label_new (str);
 	g_free (str);
-#if GTK_CHECK_VERSION (3, 14, 0)
-	gtk_widget_set_halign (plug->priv->auth_time_label, GTK_ALIGN_CENTER);
-	gtk_widget_set_valign (plug->priv->auth_time_label, GTK_ALIGN_CENTER);
+#if GTK_CHECK_VERSION (3, 16, 0)
+	gtk_label_set_xalign (GTK_LABEL (plug->priv->auth_time_label), 0.5);
+	gtk_label_set_xalign (GTK_LABEL (plug->priv->auth_time_label), 0.5);
 #else
 	gtk_misc_set_alignment (GTK_MISC (plug->priv->auth_time_label), 0.5, 0.5);
 #endif
@@ -1975,9 +1975,9 @@ create_page_one (GSLockPlug *plug)
 	str = g_strdup ("<span size=\"large\">%s</span>");
 	plug->priv->auth_date_label = gtk_label_new (str);
 	g_free (str);
-#if GTK_CHECK_VERSION (3, 14, 0)
-	gtk_widget_set_halign (plug->priv->auth_date_label, GTK_ALIGN_CENTER);
-	gtk_widget_set_valign (plug->priv->auth_date_label, GTK_ALIGN_CENTER);
+#if GTK_CHECK_VERSION (3, 16, 0)
+	gtk_label_set_xalign (GTK_LABEL (plug->priv->auth_date_label), 0.5);
+	gtk_label_set_xalign (GTK_LABEL (plug->priv->auth_date_label), 0.5);
 #else
 	gtk_misc_set_alignment (GTK_MISC (plug->priv->auth_date_label), 0.5, 0.5);
 #endif
@@ -1986,7 +1986,7 @@ create_page_one (GSLockPlug *plug)
 
 	plug->priv->auth_face_image = gtk_image_new ();
 	gtk_box_pack_start (GTK_BOX (vbox), plug->priv->auth_face_image, TRUE, TRUE, 0);
-#if GTK_CHECK_VERSION (3, 14, 0)
+#if GTK_CHECK_VERSION (3, 0, 0)
 	gtk_widget_set_halign (plug->priv->auth_face_image, GTK_ALIGN_CENTER);
 	gtk_widget_set_valign (plug->priv->auth_face_image, GTK_ALIGN_END);
 #else
@@ -2004,9 +2004,9 @@ create_page_one (GSLockPlug *plug)
 	plug->priv->auth_realname_label = gtk_label_new (str);
 	g_free (str);
 	expand_string_for_label (plug->priv->auth_realname_label);
-#if GTK_CHECK_VERSION (3, 14, 0)
-	gtk_widget_set_halign (plug->priv->auth_realname_label, GTK_ALIGN_CENTER);
-	gtk_widget_set_valign (plug->priv->auth_realname_label, GTK_ALIGN_CENTER);
+#if GTK_CHECK_VERSION (3, 16, 0)
+	gtk_label_set_xalign (GTK_LABEL (plug->priv->auth_realname_label), 0.5);
+	gtk_label_set_xalign (GTK_LABEL (plug->priv->auth_realname_label), 0.5);
 #else
 	gtk_misc_set_alignment (GTK_MISC (plug->priv->auth_realname_label), 0.5, 0.5);
 #endif
@@ -2018,9 +2018,9 @@ create_page_one (GSLockPlug *plug)
 	plug->priv->auth_username_label = gtk_label_new (str);
 	g_free (str);
 	expand_string_for_label (plug->priv->auth_username_label);
-#if GTK_CHECK_VERSION (3, 14, 0)
-	gtk_widget_set_halign (plug->priv->auth_username_label, GTK_ALIGN_CENTER);
-	gtk_widget_set_valign (plug->priv->auth_username_label, GTK_ALIGN_CENTER);
+#if GTK_CHECK_VERSION (3, 16, 0)
+	gtk_label_set_xalign (GTK_LABEL (plug->priv->auth_realname_label), 0.5);
+	gtk_label_set_xalign (GTK_LABEL (plug->priv->auth_realname_label), 0.5);
 #else
 	gtk_misc_set_alignment (GTK_MISC (plug->priv->auth_username_label), 0.5, 0.5);
 #endif
@@ -2042,10 +2042,10 @@ create_page_one (GSLockPlug *plug)
 	gtk_box_pack_start (GTK_BOX (vbox2), hbox, FALSE, FALSE, 0);
 
 	plug->priv->auth_prompt_label = gtk_label_new_with_mnemonic (_("_Password:"));
-#if GTK_CHECK_VERSION (3, 14, 0)
-	gtk_widget_set_halign (plug->priv->auth_prompt_label, GTK_ALIGN_START);
+#if GTK_CHECK_VERSION (3, 16, 0)
+	gtk_label_set_xalign (GTK_LABEL (plug->priv->auth_prompt_label), 0.0);
 #else
-	gtk_misc_set_alignment (GTK_MISC (plug->priv->auth_prompt_label), 0, 0.5);
+	gtk_misc_set_alignment (GTK_MISC (plug->priv->auth_prompt_label), 0.0, 0.5);
 #endif
 	gtk_box_pack_start (GTK_BOX (hbox), plug->priv->auth_prompt_label, FALSE, FALSE, 0);
 
@@ -2056,9 +2056,9 @@ create_page_one (GSLockPlug *plug)
 	                               plug->priv->auth_prompt_entry);
 
 	plug->priv->auth_capslock_label = gtk_label_new ("");
-#if GTK_CHECK_VERSION (3, 14, 0)
-	gtk_widget_set_halign (plug->priv->auth_capslock_label, GTK_ALIGN_CENTER);
-	gtk_widget_set_valign (plug->priv->auth_capslock_label, GTK_ALIGN_CENTER);
+#if GTK_CHECK_VERSION (3, 16, 0)
+	gtk_label_set_xalign (GTK_LABEL (plug->priv->auth_capslock_label), 0.5);
+	gtk_label_set_xalign (GTK_LABEL (plug->priv->auth_capslock_label), 0.5);
 #else
 	gtk_misc_set_alignment (GTK_MISC (plug->priv->auth_capslock_label), 0.5, 0.5);
 #endif
@@ -2266,6 +2266,13 @@ gs_lock_plug_init (GSLockPlug *plug)
 	plug->priv->leave_note_enabled = TRUE;
 #else
 	plug->priv->leave_note_enabled = FALSE;
+#endif
+
+#if GTK_CHECK_VERSION(3, 0, 0)
+	GtkStyleContext *context;
+
+	context = gtk_widget_get_style_context (GTK_WIDGET (plug));
+	gtk_style_context_add_class (context, "lock-dialog");
 #endif
 
 	if (! load_theme (plug))
