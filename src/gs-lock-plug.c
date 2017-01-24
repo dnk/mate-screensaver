@@ -36,14 +36,11 @@
 #include <gdk/gdkkeysyms.h>
 #include <gdk/gdkx.h>
 #include <gtk/gtk.h>
+#include <gtk/gtkx.h>
 #include <gio/gio.h>
 
 #define MATE_DESKTOP_USE_UNSTABLE_API
 #include <libmate-desktop/mate-desktop-utils.h>
-
-#if GTK_CHECK_VERSION (3, 0, 0)
-#include <gtk/gtkx.h>
-#endif
 
 #ifdef WITH_KBD_LAYOUT_INDICATOR
 #include <libmatekbd/matekbd-indicator.h>
@@ -227,7 +224,7 @@ do_user_switch (GSLockPlug *plug)
 			g_error_free (error);
 		}
 	}
-	else if (process_is_running ("gdm") || process_is_running("gdm3"))
+	else if (process_is_running ("gdm") || process_is_running("gdm3") || process_is_running("gdm-binary"))
 	{
 		/* GDM */
 		command = g_strdup_printf ("%s %s",
@@ -623,13 +620,7 @@ gs_lock_plug_run (GSLockPlug *plug)
 
 	ri.loop = g_main_loop_new (NULL, FALSE);
 
-#if !GTK_CHECK_VERSION (3, 0, 0)
-	GDK_THREADS_LEAVE ();
-#endif
 	g_main_loop_run (ri.loop);
-#if !GTK_CHECK_VERSION (3, 0, 0)
-	GDK_THREADS_ENTER ();
-#endif
 
 	g_main_loop_unref (ri.loop);
 
@@ -716,7 +707,6 @@ rounded_rectangle (cairo_t *cr,
 	cairo_close_path (cr);
 }
 
-#if GTK_CHECK_VERSION (3, 0, 0)
 /* copied from gnome-screensaver 3.x */
 
 /**
@@ -891,83 +881,6 @@ image_set_from_pixbuf (GtkImage  *image,
 	gtk_image_set_from_pixbuf (image, pixbuf);
 	g_object_unref (pixbuf);
 }
-#else
-static void
-image_set_from_pixbuf (GtkImage  *image,
-                       GdkPixbuf *source)
-{
-	cairo_t         *cr;
-	cairo_t         *cr_mask;
-	cairo_surface_t *surface;
-	GdkPixmap       *pixmap;
-	GdkPixmap       *bitmask;
-	int              w;
-	int              h;
-	int              frame_width;
-	double           radius;
-	GdkColor         color;
-	double           r;
-	double           g;
-	double           b;
-
-	frame_width = 5;
-
-	w = gdk_pixbuf_get_width (source) + frame_width * 2;
-	h = gdk_pixbuf_get_height (source) + frame_width * 2;
-
-	radius = w / 10;
-
-	pixmap = gdk_pixmap_new (gtk_widget_get_window (GTK_WIDGET (image)), w, h, -1);
-	bitmask = gdk_pixmap_new (gtk_widget_get_window (GTK_WIDGET (image)), w, h, 1);
-
-	cr = gdk_cairo_create (pixmap);
-	cr_mask = gdk_cairo_create (bitmask);
-
-	/* setup mask */
-	cairo_rectangle (cr_mask, 0, 0, w, h);
-	cairo_set_operator (cr_mask, CAIRO_OPERATOR_CLEAR);
-	cairo_fill (cr_mask);
-
-	rounded_rectangle (cr_mask, 1.0, 0.5, 0.5, radius, w - 1, h - 1);
-	cairo_set_operator (cr_mask, CAIRO_OPERATOR_OVER);
-	cairo_set_source_rgb (cr_mask, 1, 1, 1);
-	cairo_fill (cr_mask);
-
-	color = gtk_widget_get_style (GTK_WIDGET (image))->bg [GTK_STATE_NORMAL];
-	r = (float)color.red / 65535.0;
-	g = (float)color.green / 65535.0;
-	b = (float)color.blue / 65535.0;
-
-	/* set up image */
-	cairo_rectangle (cr, 0, 0, w, h);
-	cairo_set_source_rgb (cr, r, g, b);
-	cairo_fill (cr);
-
-	rounded_rectangle (cr,
-	                   1.0,
-	                   frame_width + 0.5,
-	                   frame_width + 0.5,
-	                   radius,
-	                   w - frame_width * 2 - 1,
-	                   h - frame_width * 2 - 1);
-	cairo_set_source_rgba (cr, 0.5, 0.5, 0.5, 0.3);
-	cairo_fill_preserve (cr);
-
-	surface = surface_from_pixbuf (source);
-	cairo_set_source_surface (cr, surface, frame_width, frame_width);
-	cairo_fill (cr);
-
-	gtk_image_set_from_pixmap (image, pixmap, bitmask);
-
-	cairo_surface_destroy (surface);
-
-	g_object_unref (bitmask);
-	g_object_unref (pixmap);
-
-	cairo_destroy (cr_mask);
-	cairo_destroy (cr);
-}
-#endif
 
 static gboolean
 check_user_file (const gchar *filename,
@@ -1125,41 +1038,6 @@ forward_key_events (GSLockPlug *plug)
 	}
 }
 
-#if !GTK_CHECK_VERSION (3, 0, 0)
-static void
-gs_lock_plug_size_request (GtkWidget      *widget,
-                           GtkRequisition *requisition)
-{
-	GSLockPlug *plug = GS_LOCK_PLUG (widget);
-	int mod_width;
-	int mod_height;
-
-	if (GTK_WIDGET_CLASS (gs_lock_plug_parent_class)->size_request)
-	{
-		GTK_WIDGET_CLASS (gs_lock_plug_parent_class)->size_request (widget, requisition);
-	}
-
-	/* don't constrain size when themed */
-	if (plug->priv->vbox == NULL)
-	{
-		return;
-	}
-
-	mod_width = requisition->height * 1.3;
-	mod_height = requisition->width / 1.6;
-	if (requisition->width < mod_width)
-	{
-		/* if the dialog is tall fill out the width */
-		requisition->width = mod_width;
-	}
-	else if (requisition->height < mod_height)
-	{
-		/* if the dialog is wide fill out the height */
-		requisition->height = mod_height;
-	}
-}
-#endif
-
 static void
 gs_lock_plug_set_logout_enabled (GSLockPlug *plug,
                                  gboolean    logout_enabled)
@@ -1287,7 +1165,7 @@ gs_lock_plug_set_switch_enabled (GSLockPlug *plug,
 			/* MDM  */
 			gtk_widget_show (plug->priv->auth_switch_button);
 		}
-		else if (process_is_running ("gdm") || process_is_running("gdm3"))
+		else if (process_is_running ("gdm") || process_is_running("gdm3") || process_is_running("gdm-binary"))
 		{
 			/* GDM */
 			gtk_widget_show (plug->priv->auth_switch_button);
@@ -1369,9 +1247,6 @@ gs_lock_plug_class_init (GSLockPlugClass *klass)
 	widget_class->style_set    = gs_lock_plug_style_set;
 	widget_class->show         = gs_lock_plug_show;
 	widget_class->hide         = gs_lock_plug_hide;
-#if !GTK_CHECK_VERSION (3, 0, 0)
-	widget_class->size_request = gs_lock_plug_size_request;
-#endif
 
 	klass->close = gs_lock_plug_close;
 
@@ -1567,11 +1442,7 @@ gs_lock_plug_set_busy (GSLockPlug *plug)
 #endif
 
 	gdk_window_set_cursor (gtk_widget_get_window (top_level), cursor);
-#if GTK_CHECK_VERSION (3, 0, 0)
 	g_object_unref (cursor);
-#else
-	gdk_cursor_unref (cursor);
-#endif
 }
 
 void
@@ -1592,11 +1463,7 @@ gs_lock_plug_set_ready (GSLockPlug *plug)
 	cursor = gdk_cursor_new (GDK_LEFT_PTR);
 #endif
 	gdk_window_set_cursor (gtk_widget_get_window (top_level), cursor);
-#if GTK_CHECK_VERSION (3, 0, 0)
 	g_object_unref (cursor);
-#else
-	gdk_cursor_unref (cursor);
-#endif
 }
 
 void
@@ -1703,7 +1570,7 @@ gs_lock_plug_add_button (GSLockPlug  *plug,
 	g_return_val_if_fail (GS_IS_LOCK_PLUG (plug), NULL);
 	g_return_val_if_fail (button_text != NULL, NULL);
 
-	button = gtk_button_new_from_stock (button_text);
+	button = gtk_button_new_with_label (button_text);
 
 	gtk_widget_set_can_default (button, TRUE);
 
@@ -1768,24 +1635,24 @@ create_page_one_buttons (GSLockPlug *plug)
 	gtk_button_box_set_child_secondary (GTK_BUTTON_BOX (plug->priv->auth_action_area),
 	                                    plug->priv->auth_switch_button,
 	                                    TRUE);
-	gtk_button_set_focus_on_click (GTK_BUTTON (plug->priv->auth_switch_button), FALSE);
+	gtk_widget_set_focus_on_click (GTK_WIDGET (plug->priv->auth_switch_button), FALSE);
 	gtk_widget_set_no_show_all (plug->priv->auth_switch_button, TRUE);
 
 	plug->priv->auth_logout_button =  gs_lock_plug_add_button (GS_LOCK_PLUG (plug),
 	                                  plug->priv->auth_action_area,
 	                                  _("Log _Out"));
-	gtk_button_set_focus_on_click (GTK_BUTTON (plug->priv->auth_logout_button), FALSE);
+	gtk_widget_set_focus_on_click (GTK_WIDGET (plug->priv->auth_logout_button), FALSE);
 	gtk_widget_set_no_show_all (plug->priv->auth_logout_button, TRUE);
 
 	plug->priv->auth_cancel_button =  gs_lock_plug_add_button (GS_LOCK_PLUG (plug),
 	                                  plug->priv->auth_action_area,
 	                                  GTK_STOCK_CANCEL);
-	gtk_button_set_focus_on_click (GTK_BUTTON (plug->priv->auth_cancel_button), FALSE);
+	gtk_widget_set_focus_on_click (GTK_WIDGET (plug->priv->auth_cancel_button), FALSE);
 
 	plug->priv->auth_unlock_button =  gs_lock_plug_add_button (GS_LOCK_PLUG (plug),
 	                                  plug->priv->auth_action_area,
 	                                  _("_Unlock"));
-	gtk_button_set_focus_on_click (GTK_BUTTON (plug->priv->auth_unlock_button), FALSE);
+	gtk_widget_set_focus_on_click (GTK_WIDGET (plug->priv->auth_unlock_button), FALSE);
 
 	gtk_window_set_default (GTK_WINDOW (plug), plug->priv->auth_unlock_button);
 
@@ -1935,7 +1802,6 @@ expand_string_for_label (GtkWidget *label)
 static void
 create_page_one (GSLockPlug *plug)
 {
-	GtkWidget            *align;
 	GtkWidget            *vbox;
 	GtkWidget            *vbox2;
 	GtkWidget            *hbox;
@@ -1943,21 +1809,14 @@ create_page_one (GSLockPlug *plug)
 
 	gs_profile_start ("page one");
 
-	align = gtk_alignment_new (0.5, 0.5, 1, 1);
-	gtk_notebook_append_page (GTK_NOTEBOOK (plug->priv->notebook), align, NULL);
-
-#if GTK_CHECK_VERSION (3, 0, 0)
 	vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
-#else
-	vbox = gtk_vbox_new (FALSE, 12);
-#endif
-	gtk_container_add (GTK_CONTAINER (align), vbox);
+	gtk_widget_set_halign (GTK_WIDGET (vbox),
+	                       GTK_ALIGN_CENTER);
+	gtk_widget_set_valign (GTK_WIDGET (vbox),
+	                       GTK_ALIGN_CENTER);
+	gtk_notebook_append_page (GTK_NOTEBOOK (plug->priv->notebook), vbox, NULL);
 
-#if GTK_CHECK_VERSION (3, 0, 0)
 	vbox2 = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
-#else
-	vbox2 = gtk_vbox_new (FALSE, 0);
-#endif
 	gtk_box_pack_start (GTK_BOX (vbox), vbox2, FALSE, FALSE, 0);
 
 	str = g_strdup ("<span size=\"xx-large\" weight=\"ultrabold\">%s</span>");
@@ -1965,7 +1824,7 @@ create_page_one (GSLockPlug *plug)
 	g_free (str);
 #if GTK_CHECK_VERSION (3, 16, 0)
 	gtk_label_set_xalign (GTK_LABEL (plug->priv->auth_time_label), 0.5);
-	gtk_label_set_xalign (GTK_LABEL (plug->priv->auth_time_label), 0.5);
+	gtk_label_set_yalign (GTK_LABEL (plug->priv->auth_time_label), 0.5);
 #else
 	gtk_misc_set_alignment (GTK_MISC (plug->priv->auth_time_label), 0.5, 0.5);
 #endif
@@ -1977,7 +1836,7 @@ create_page_one (GSLockPlug *plug)
 	g_free (str);
 #if GTK_CHECK_VERSION (3, 16, 0)
 	gtk_label_set_xalign (GTK_LABEL (plug->priv->auth_date_label), 0.5);
-	gtk_label_set_xalign (GTK_LABEL (plug->priv->auth_date_label), 0.5);
+	gtk_label_set_yalign (GTK_LABEL (plug->priv->auth_date_label), 0.5);
 #else
 	gtk_misc_set_alignment (GTK_MISC (plug->priv->auth_date_label), 0.5, 0.5);
 #endif
@@ -1986,18 +1845,10 @@ create_page_one (GSLockPlug *plug)
 
 	plug->priv->auth_face_image = gtk_image_new ();
 	gtk_box_pack_start (GTK_BOX (vbox), plug->priv->auth_face_image, TRUE, TRUE, 0);
-#if GTK_CHECK_VERSION (3, 0, 0)
 	gtk_widget_set_halign (plug->priv->auth_face_image, GTK_ALIGN_CENTER);
 	gtk_widget_set_valign (plug->priv->auth_face_image, GTK_ALIGN_END);
-#else
-	gtk_misc_set_alignment (GTK_MISC (plug->priv->auth_face_image), 0.5, 1.0);
-#endif
 
-#if GTK_CHECK_VERSION (3, 0, 0)
 	vbox2 = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
-#else
-	vbox2 = gtk_vbox_new (FALSE, 0);
-#endif
 	gtk_box_pack_start (GTK_BOX (vbox), vbox2, FALSE, FALSE, 0);
 
 	str = g_strdup ("<span size=\"x-large\">%R</span>");
@@ -2006,7 +1857,7 @@ create_page_one (GSLockPlug *plug)
 	expand_string_for_label (plug->priv->auth_realname_label);
 #if GTK_CHECK_VERSION (3, 16, 0)
 	gtk_label_set_xalign (GTK_LABEL (plug->priv->auth_realname_label), 0.5);
-	gtk_label_set_xalign (GTK_LABEL (plug->priv->auth_realname_label), 0.5);
+	gtk_label_set_yalign (GTK_LABEL (plug->priv->auth_realname_label), 0.5);
 #else
 	gtk_misc_set_alignment (GTK_MISC (plug->priv->auth_realname_label), 0.5, 0.5);
 #endif
@@ -2020,30 +1871,23 @@ create_page_one (GSLockPlug *plug)
 	expand_string_for_label (plug->priv->auth_username_label);
 #if GTK_CHECK_VERSION (3, 16, 0)
 	gtk_label_set_xalign (GTK_LABEL (plug->priv->auth_realname_label), 0.5);
-	gtk_label_set_xalign (GTK_LABEL (plug->priv->auth_realname_label), 0.5);
+	gtk_label_set_yalign (GTK_LABEL (plug->priv->auth_realname_label), 0.5);
 #else
 	gtk_misc_set_alignment (GTK_MISC (plug->priv->auth_username_label), 0.5, 0.5);
 #endif
 	gtk_label_set_use_markup (GTK_LABEL (plug->priv->auth_username_label), TRUE);
 	gtk_box_pack_start (GTK_BOX (vbox2), plug->priv->auth_username_label, FALSE, FALSE, 0);
 
-#if GTK_CHECK_VERSION (3, 0, 0)
 	vbox2 = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
-#else
-	vbox2 = gtk_vbox_new (FALSE, 0);
-#endif
 	gtk_box_pack_start (GTK_BOX (vbox), vbox2, TRUE, TRUE, 0);
 
-#if GTK_CHECK_VERSION (3, 0, 0)
 	hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
-#else
-	hbox = gtk_hbox_new (FALSE, 6);
-#endif
 	gtk_box_pack_start (GTK_BOX (vbox2), hbox, FALSE, FALSE, 0);
 
 	plug->priv->auth_prompt_label = gtk_label_new_with_mnemonic (_("_Password:"));
 #if GTK_CHECK_VERSION (3, 16, 0)
 	gtk_label_set_xalign (GTK_LABEL (plug->priv->auth_prompt_label), 0.0);
+	gtk_label_set_yalign (GTK_LABEL (plug->priv->auth_prompt_label), 0.5);
 #else
 	gtk_misc_set_alignment (GTK_MISC (plug->priv->auth_prompt_label), 0.0, 0.5);
 #endif
@@ -2058,7 +1902,7 @@ create_page_one (GSLockPlug *plug)
 	plug->priv->auth_capslock_label = gtk_label_new ("");
 #if GTK_CHECK_VERSION (3, 16, 0)
 	gtk_label_set_xalign (GTK_LABEL (plug->priv->auth_capslock_label), 0.5);
-	gtk_label_set_xalign (GTK_LABEL (plug->priv->auth_capslock_label), 0.5);
+	gtk_label_set_yalign (GTK_LABEL (plug->priv->auth_capslock_label), 0.5);
 #else
 	gtk_misc_set_alignment (GTK_MISC (plug->priv->auth_capslock_label), 0.5, 0.5);
 #endif
@@ -2070,11 +1914,7 @@ create_page_one (GSLockPlug *plug)
 	gtk_box_pack_start (GTK_BOX (vbox), plug->priv->auth_message_label,
 	                    FALSE, FALSE, 0);
 	/* Buttons */
-#if GTK_CHECK_VERSION(3, 0, 0)
 	plug->priv->auth_action_area = gtk_button_box_new (GTK_ORIENTATION_HORIZONTAL);
-#else
-	plug->priv->auth_action_area = gtk_hbutton_box_new ();
-#endif
 
 	gtk_button_box_set_layout (GTK_BUTTON_BOX (plug->priv->auth_action_area),
 	                           GTK_BUTTONBOX_END);
@@ -2138,7 +1978,7 @@ load_theme (GSLockPlug *plug)
 	char       *theme;
 	char       *filename;
 	char       *gtkbuilder;
-	char       *rc;
+	char       *css;
 	GtkBuilder *builder;
 	GtkWidget  *lock_dialog;
 	GError     *error=NULL;
@@ -2159,19 +1999,19 @@ load_theme (GSLockPlug *plug)
 		return FALSE;
 	}
 
-	filename = g_strdup_printf ("lock-dialog-%s.gtkrc", theme);
+	filename = g_strdup_printf ("lock-dialog-%s.css", theme);
 	g_free (theme);
 
-	rc = g_build_filename (GTKBUILDERDIR, filename, NULL);
+	css = g_build_filename (GTKBUILDERDIR, filename, NULL);
 	g_free (filename);
-	if (g_file_test (rc, G_FILE_TEST_IS_REGULAR))
+	if (g_file_test (css, G_FILE_TEST_IS_REGULAR))
 	{
-		gtk_rc_parse (rc);
+		GtkCssProvider *style_provider = gtk_css_provider_get_default ();
+		gtk_css_provider_load_from_path (style_provider, css, NULL);
 	}
-	g_free (rc);
+	g_free (css);
 
 	builder = gtk_builder_new();
-
 	if (!gtk_builder_add_from_file (builder,gtkbuilder,&error))
 	{
 		g_warning ("Couldn't load builder file '%s': %s", gtkbuilder, error->message);
@@ -2268,23 +2108,16 @@ gs_lock_plug_init (GSLockPlug *plug)
 	plug->priv->leave_note_enabled = FALSE;
 #endif
 
-#if GTK_CHECK_VERSION(3, 0, 0)
 	GtkStyleContext *context;
 
 	context = gtk_widget_get_style_context (GTK_WIDGET (plug));
 	gtk_style_context_add_class (context, "lock-dialog");
-#endif
 
 	if (! load_theme (plug))
 	{
 		gs_debug ("Unable to load theme!");
 
-#if GTK_CHECK_VERSION (3, 0, 0)
 		plug->priv->vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
-#else
-		plug->priv->vbox = gtk_vbox_new (FALSE, 0);
-#endif
-
 		gtk_container_add (GTK_CONTAINER (plug), plug->priv->vbox);
 
 		/* Notebook */

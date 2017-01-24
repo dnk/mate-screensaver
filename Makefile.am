@@ -5,7 +5,8 @@ ACLOCAL_AMFLAGS = -I m4 ${ACLOCAL_FLAGS}
 
 NULL =
 
-DISTCHECK_CONFIGURE_FLAGS = --without-systemd
+DISTCHECK_CONFIGURE_FLAGS = \
+	--without-systemd
 
 SUBDIRS =			\
 	src			\

@@ -35,8 +35,6 @@
 #include <glib/gi18n.h>
 
 #include <gdk/gdk.h>
-#include <gdk/gdkx.h>
-
 #include <gtk/gtk.h>
 
 #include "gs-theme-window.h"
@@ -265,7 +263,7 @@ static CachedSource *cached_source_new (cairo_pattern_t *pattern,
                                         gint             height);
 static void cached_source_free (CachedSource *source);
 
-static ScreenSaver *screen_saver_new (GtkDrawingArea  *drawing_area,
+static ScreenSaver *screen_saver_new (GtkWidget       *drawing_area,
                                       const gchar     *filename,
                                       gint             max_floater_count,
                                       gboolean         should_do_rotations,
@@ -284,13 +282,8 @@ static void screen_saver_create_floaters (ScreenSaver *screen_saver);
 static void screen_saver_destroy_floaters (ScreenSaver *screen_saver);
 static void screen_saver_on_size_allocate (ScreenSaver   *screen_saver,
         GtkAllocation *allocation);
-#if GTK_CHECK_VERSION (3, 0, 0)
 static void screen_saver_on_draw (ScreenSaver    *screen_saver,
         cairo_t *context);
-#else
-static void screen_saver_on_expose_event (ScreenSaver    *screen_saver,
-        GdkEventExpose *event);
-#endif
 static gboolean do_print_screen_saver_stats (ScreenSaver *screen_saver);
 static GdkPixbuf *gamma_correct (const GdkPixbuf *input_pixbuf);
 
@@ -841,7 +834,7 @@ screen_saver_floater_do_draw (ScreenSaver        *screen_saver,
 }
 
 static ScreenSaver *
-screen_saver_new (GtkDrawingArea  *drawing_area,
+screen_saver_new (GtkWidget       *drawing_area,
                   const gchar     *filename,
                   gint             max_floater_count,
                   gboolean         should_do_rotations,
@@ -851,7 +844,7 @@ screen_saver_new (GtkDrawingArea  *drawing_area,
 
 	screen_saver = g_new (ScreenSaver, 1);
 	screen_saver->filename = g_strdup (filename);
-	screen_saver->drawing_area = GTK_WIDGET (drawing_area);
+	screen_saver->drawing_area = drawing_area;
 	screen_saver->cached_sources =
 	    g_hash_table_new_full (NULL, NULL, NULL,
 	                           (GDestroyNotify) cached_source_free);
@@ -860,15 +853,9 @@ screen_saver_new (GtkDrawingArea  *drawing_area,
 	                          G_CALLBACK (screen_saver_on_size_allocate),
 	                          screen_saver);
 
-#if GTK_CHECK_VERSION (3, 0, 0)
 	g_signal_connect_swapped (G_OBJECT (drawing_area), "draw",
 	                          G_CALLBACK (screen_saver_on_draw),
 	                          screen_saver);
-#else
-	g_signal_connect_swapped (G_OBJECT (drawing_area), "expose-event",
-	                          G_CALLBACK (screen_saver_on_expose_event),
-	                          screen_saver);
-#endif
 
 	screen_saver->first_update_time = 0.0;
 	screen_saver->current_calculated_stats_time = 0.0;
@@ -1021,32 +1008,13 @@ compare_floaters (ScreenSaverFloater *a,
 }
 
 static void
-#if GTK_CHECK_VERSION (3, 0, 0)
 screen_saver_on_draw (ScreenSaver    *screen_saver,
                       cairo_t        *context)
-#else
-screen_saver_on_expose_event (ScreenSaver    *screen_saver,
-                              GdkEventExpose *event)
-#endif
 {
 	GList *tmp;
-#if !GTK_CHECK_VERSION (3, 0, 0)
-	cairo_t *context;
-#endif
 
 	if (screen_saver->floaters == NULL)
 		screen_saver_create_floaters (screen_saver);
-
-#if !GTK_CHECK_VERSION (3, 0, 0)
-	context = gdk_cairo_create (gtk_widget_get_window (screen_saver->drawing_area));
-
-	cairo_rectangle (context,
-	                 (double) event->area.x,
-	                 (double) event->area.y,
-	                 (double) event->area.width,
-	                 (double) event->area.height);
-	cairo_clip (context);
-#endif
 
 	screen_saver->floaters = g_list_sort (screen_saver->floaters,
 	                                      (GCompareFunc)compare_floaters);
@@ -1054,25 +1022,8 @@ screen_saver_on_expose_event (ScreenSaver    *screen_saver,
 	for (tmp = screen_saver->floaters; tmp != NULL; tmp = tmp->next)
 	{
 		ScreenSaverFloater *floater;
-#if !GTK_CHECK_VERSION (3, 0, 0)
-		GdkRectangle rect;
-		gint size;
-#endif
 
 		floater = (ScreenSaverFloater *) tmp->data;
-
-#if !GTK_CHECK_VERSION (3, 0, 0)
-		size = CLAMP ((int) (FLOATER_MAX_SIZE * floater->scale),
-		              FLOATER_MIN_SIZE, FLOATER_MAX_SIZE);
-
-		rect.x = (int) (floater->position.x - .5 * G_SQRT2 * size);
-		rect.y = (int) (floater->position.y - .5 * G_SQRT2 * size);
-		rect.width = G_SQRT2 * size;
-		rect.height = G_SQRT2 * size;
-
-		if (!gdk_region_rect_in (event->region, &rect))
-			continue;
-#endif
 
 		if (!screen_saver_floater_do_draw (screen_saver, floater, context))
 		{
@@ -1080,10 +1031,6 @@ screen_saver_on_expose_event (ScreenSaver    *screen_saver,
 			break;
 		}
 	}
-
-#if !GTK_CHECK_VERSION (3, 0, 0)
-	cairo_destroy (context);
-#endif
 
 	screen_saver->draw_ops_pending = TRUE;
 	screen_saver->frame_count++;
@@ -1103,8 +1050,9 @@ screen_saver_update_state (ScreenSaver *screen_saver,
 
 		screen_saver_floater_update_state (screen_saver, floater, time);
 
-		if (gtk_widget_get_realized (screen_saver->drawing_area)
-		        && (floater->bounds.width > 0) && (floater->bounds.height > 0))
+		if (screen_saver->drawing_area != NULL &&
+		    gtk_widget_get_realized (screen_saver->drawing_area) &&
+		    (floater->bounds.width > 0) && (floater->bounds.height > 0))
 		{
 			gint size;
 			size = CLAMP ((int) (FLOATER_MAX_SIZE * floater->scale),
@@ -1216,17 +1164,9 @@ int
 main (int   argc,
       char *argv[])
 {
-	ScreenSaver *screen_saver;
-	GtkWidget *window;
-	GtkWidget *drawing_area;
-#if GTK_CHECK_VERSION (3, 0, 0)
-    GdkRGBA bg;
-    GdkRGBA fg;
-#else
-	GtkStyle *style;
-	GtkStateType state;
-#endif
-
+	ScreenSaver     *screen_saver;
+	GtkWidget       *window;
+	GtkWidget       *drawing_area;
 	GError *error;
 
 	error = NULL;
@@ -1264,33 +1204,12 @@ main (int   argc,
 	g_signal_connect (G_OBJECT (window), "delete-event",
 	                  G_CALLBACK (gtk_main_quit), NULL);
 
-	drawing_area = gtk_drawing_area_new ();
-
-#if GTK_CHECK_VERSION (3, 0, 0)
-	bg.red = 0;
-	bg.green = 0;
-	bg.blue = 0;
-	bg.alpha = 1.0;
-	fg.red = 0.8;
-	fg.green = 0.8;
-	fg.blue = 0.8;
-	fg.alpha = 1.0;
-	gtk_widget_override_background_color (drawing_area, 0, &bg);
-	gtk_widget_override_color (drawing_area, 0, &fg);
-#else
-	style = gtk_widget_get_style (drawing_area);
-	state = (GtkStateType) 0;
-	while (state < (GtkStateType) G_N_ELEMENTS (style->bg))
-	{
-		gtk_widget_modify_bg (drawing_area, state, &style->mid[state]);
-		state++;
-	}
-#endif
+	drawing_area = GTK_WIDGET (gtk_drawing_area_new ());
 
 	gtk_widget_show (drawing_area);
 	gtk_container_add (GTK_CONTAINER (window), drawing_area);
 
-	screen_saver = screen_saver_new (GTK_DRAWING_AREA (drawing_area),
+	screen_saver = screen_saver_new (drawing_area,
 	                                 filenames[0], max_floater_count,
 	                                 should_do_rotations, should_show_paths);
 	g_strfreev (filenames);
